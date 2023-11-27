@@ -168,6 +168,11 @@ class MVAE_extended(MVAE):
             self.reconstruc_1_during_training.append(train_rec1/len(trainloader))
             self.reconstruc_2_during_training.append(train_rec2/len(trainloader))
             self.KL_during_training.append(train_kl_l/len(trainloader))
+            print("---------EPOCH{}---------".format(e))
+            print('loss: ', train_loss/len(trainloader))
+            print('rec1: ', train_rec1/len(trainloader))
+            print('rec2: ', train_rec2/len(trainloader))
+            print('KL: ', train_kl_l/len(trainloader))
 
             if(e%1==0):
 
