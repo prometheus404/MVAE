@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import numpy as np
+import torchvision
 from torchvision import datasets
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
@@ -159,16 +160,16 @@ class decoder(nn.Module):
 
 
 def getDataLoaders(batch_size, shuffle=True, device='cuda'):
-        if not (os.path.exists('../data/train-ms-mnist-idx.pt')
-                and os.path.exists('../data/train-ms-svhn-idx.pt')) :
-           #     and os.path.exists('../data/test-ms-mnist-idx.pt')
-            #    and os.path.exists('../data/test-ms-svhn-idx.pt')):
+        if not (os.path.exists('./data/train-ms-mnist-idx.pt')
+                and os.path.exists('./data/train-ms-svhn-idx.pt')) :
+           #     and os.path.exists('./data/test-ms-mnist-idx.pt')
+            #    and os.path.exists('./data/test-ms-svhn-idx.pt')):
             raise RuntimeError('Generate transformed indices with the script in bin')
         # get transformed indices
-        t_mnist = torch.load('../data/train-ms-mnist-idx.pt')
-        t_svhn = torch.load('../data/train-ms-svhn-idx.pt')
-        #s_mnist = torch.load('../data/test-ms-mnist-idx.pt')
-        #s_svhn = torch.load('../data/test-ms-svhn-idx.pt')
+        t_mnist = torch.load('./data/train-ms-mnist-idx.pt')
+        t_svhn = torch.load('./data/train-ms-svhn-idx.pt')
+        #s_mnist = torch.load('./data/test-ms-mnist-idx.pt')
+        #s_svhn = torch.load('./data/test-ms-svhn-idx.pt')
 
         # load base datasets
         t1 = mnist_train_dataset = datasets.MNIST(root='./data', train=True, transform=transforms.ToTensor(), download=True)

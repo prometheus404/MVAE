@@ -113,7 +113,8 @@ class MVAE_extended(MVAE):
           self.load_state_dict(state_dict)
 
         self.loss_during_training = []
-        self.reconstruc_during_training = []
+        self.reconstruc_1_during_training = []
+        self.reconstruc_2_during_training = []
         self.KL_during_training = []
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -128,7 +129,8 @@ class MVAE_extended(MVAE):
         for e in range(int(self.epochs)):
 
             train_loss = 0
-            train_rec = 0
+            train_rec1 = 0
+            train_rec2 = 0
             train_kl_l = 0
 
             idx_batch = 0
@@ -137,17 +139,19 @@ class MVAE_extended(MVAE):
                 
                 #images = images.to(self.device)
                 mnist = mnist.to(self.device)
-                svhn = svhn.to(self.device)
+                shvn = shvn.to(self.device)
                 self.optim.zero_grad()
                 
-                mu_mnist, mu_svhn, mu_z, var_z = self.forward(mnist,svhn)
+                mu_mnist, mu_shvn, mu_z, var_z = self.forward(mnist,shvn)
 
-                loss, rec, kl_l = self.loss_function(mnist, svhn, mu_mnist, mu_svhn, mu_z, var_z)
+                loss, rec1, rec2, kl_l = self.loss_function(mnist, shvn, mu_mnist, mu_shvn, mu_z, var_z)
 
                 loss.backward()
 
                 train_loss += loss.item()
-                train_rec += rec.item()
+                train_rec1 += rec1.item()
+                train_rec2 += rec2.item()
+
                 train_kl_l += kl_l.item()
 
                 self.optim.step()
@@ -159,7 +163,8 @@ class MVAE_extended(MVAE):
                 idx_batch += 1
 
             self.loss_during_training.append(train_loss/len(trainloader))
-            self.reconstruc_during_training.append(train_rec/len(trainloader))
+            self.reconstruc_1_during_training.append(train_rec1/len(trainloader))
+            self.reconstruc_2_during_training.append(train_rec2/len(trainloader))
             self.KL_during_training.append(train_kl_l/len(trainloader))
 
             if(e%1==0):
@@ -174,6 +179,8 @@ class MVAE_extended(MVAE):
 
         eps = torch.randn([num_imgs,self.dimz]).to(self.device)
 
-        x_sample = self.decoder.decode(eps)
+        mnist_sample = self.decoder_1.decode(eps)
+        shvn_sample = self.decoder_2.decode(eps)
 
-        return x_sample.to("cpu").detach()
+        return mnist_sample.to("cpu").detach(), shvn_sample.to("cpu").detach()
+
