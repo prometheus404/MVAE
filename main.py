@@ -68,8 +68,7 @@ class VAE(nn.Module):
         C = 1/(1/var_1 + 1/var_2)
         m = C(var_1*mu_1 + var_2*mu_2)
         # Sample from the latent space
-        var = None
-        eps = torch.randn_like(var)# TODO capire come far ottenere var del joint latent space
+        eps = torch.randn_like(C)
         sample_z = eps * sqrt(C) + m
         # Decoder provides the mean of the reconstruction
         mu_x_1 = self.decoder_1.decode(sample_z)
@@ -83,8 +82,8 @@ class VAE(nn.Module):
 
         # We evaluate the loglikelihood in the batch using the function provided above
 
-        logp_1,_ = eval_Gaussian_LL(x,mu_x_1,self.var_x)  #YOUR CODE HERE
-        logp_2,_ = eval_Gaussian_LL(x,mu_x_2,self.var_x)
+        logp_1,_ = eval_Gaussian_LL(x[0],mu_x_1,self.var_x)  #x has two dimensions: the first is for svhn the second one is for mnist
+        logp_2,_ = eval_Gaussian_LL(x[1],mu_x_2,self.var_x)
 
         # KL divergence between q(z) and N()
         # see Appendix B from VAE paper:
@@ -94,4 +93,85 @@ class VAE(nn.Module):
         KLz = -0.5 * torch.sum(1 + torch.log(var_z) - mu_z.pow(2) - var_z)
 
         # To maximize ELBO we minimize loss (-ELBO)
-        return -logp_1 - logp_2 + KLz, -logp, KLz
+        return -logp_1 - logp_2 + KLz, -logp_1, -logp_2, KLz
+
+
+class VAE_extended(VAE):
+
+    def __init__(self, dimz=2,  channels=3, var_x=0.1,lr=1e-3,epochs=20,save_folder='./',restore=False):
+
+        super().__init__(dimz,channels=3,var_x=0.1)
+
+        self.lr = lr
+        self.optim = optim.Adam(self.parameters(), self.lr)
+        self.epochs = epochs
+
+        self.save_folder = save_folder
+
+        if(restore==True):
+          state_dict = torch.load(self.save_folder+'VAE_checkpoint.pth')
+          self.load_state_dict(state_dict)
+
+        self.loss_during_training = []
+        self.reconstruc_during_training = []
+        self.KL_during_training = []
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.to(self.device)
+
+    def trainloop(self,trainloader):
+
+        nims = len(trainloader.dataset)
+
+        self.train()
+
+        for e in range(int(self.epochs)):
+
+            train_loss = 0
+            train_rec = 0
+            train_kl_l = 0
+
+            idx_batch = 0
+
+            for mnist, shvn in trainloader:
+                
+                images = images.to(self.device)
+
+                self.optim.zero_grad()
+                mu_x, mu_z, var_z = self.forward(images)
+
+                loss, rec, kl_l = self.loss_function(images,mu_x, mu_z, var_z)
+
+                loss.backward()
+
+                train_loss += loss.item()
+                train_rec += rec.item()
+                train_kl_l += kl_l.item()
+
+                self.optim.step()
+
+                if(idx_batch%10==0):
+
+                  torch.save(self.state_dict(), self.save_folder + 'VAE_checkpoint.pth')
+
+                idx_batch += 1
+
+            self.loss_during_training.append(train_loss/len(trainloader))
+            self.reconstruc_during_training.append(train_rec/len(trainloader))
+            self.KL_during_training.append(train_kl_l/len(trainloader))
+
+            if(e%1==0):
+
+                torch.save(self.state_dict(), self.save_folder + 'VAE_checkpoint.pth')
+                print('Train Epoch: {} \tLoss: {:.6f}'.format(e,self.loss_during_training[-1]))
+
+
+    def sample(self,num_imgs):
+
+      with torch.no_grad():
+
+        eps = torch.randn([num_imgs,self.dimz]).to(self.device)
+
+        x_sample = self.decoder.decode(eps)
+
+        return x_sample.to("cpu").detach()
