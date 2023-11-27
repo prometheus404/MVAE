@@ -1,13 +1,18 @@
 import torch
 from torch import nn
 import numpy as np
-import torchvision
 from torchvision import datasets
 import torchvision.transforms as transforms
-from torch import optim
-import time
-from os import listdir
 import matplotlib.pyplot as plt
+
+from torchvision import datasets, transforms
+import os
+# MNIST-SVHN multi-modal model specification
+
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+from torchnet.dataset import TensorDataset, ResampleDataset
 
 def imshow(img):
     img = img / 2 + 0.5     # unnormalize to pot
@@ -151,3 +156,38 @@ class decoder(nn.Module):
         # This function simply calls the forward method
 
         return self.forward(z)
+
+
+def getDataLoaders(batch_size, shuffle=True, device='cuda'):
+        if not (os.path.exists('../data/train-ms-mnist-idx.pt')
+                and os.path.exists('../data/train-ms-svhn-idx.pt')) :
+           #     and os.path.exists('../data/test-ms-mnist-idx.pt')
+            #    and os.path.exists('../data/test-ms-svhn-idx.pt')):
+            raise RuntimeError('Generate transformed indices with the script in bin')
+        # get transformed indices
+        t_mnist = torch.load('../data/train-ms-mnist-idx.pt')
+        t_svhn = torch.load('../data/train-ms-svhn-idx.pt')
+        #s_mnist = torch.load('../data/test-ms-mnist-idx.pt')
+        #s_svhn = torch.load('../data/test-ms-svhn-idx.pt')
+
+        # load base datasets
+        t1 = mnist_train_dataset = datasets.MNIST(root='./data', train=True, transform=transforms.ToTensor(), download=True)
+        t2 = shvn_train_dataset = datasets.SVHN(root='./data', split='train',transform=transforms.ToTensor(), download=True)
+
+        train_mnist_svhn = TensorDataset([
+            ResampleDataset(t1, lambda d, i: t_mnist[i], size=len(t_mnist)),
+            ResampleDataset(t2, lambda d, i: t_svhn[i], size=len(t_svhn))
+        ])
+        print(type(t1))
+        print(type(ResampleDataset(t1, lambda d, i: t_mnist[i], size=len(t_mnist))))
+        # test_mnist_svhn = TensorDataset([
+        #    ResampleDataset(s1.dataset, lambda d, i: s_mnist[i], size=len(s_mnist)),
+        #    ResampleDataset(s2.dataset, lambda d, i: s_svhn[i], size=len(s_svhn))
+        # ])
+
+        kwargs = {'num_workers': 2, 'pin_memory': True} if device == 'cuda' else {}
+        print(type(train_mnist_svhn))
+        train = DataLoader(train_mnist_svhn, batch_size=batch_size, shuffle=shuffle, **kwargs)
+        print(type(train))
+        #test = DataLoader(test_mnist_svhn, batch_size=batch_size, shuffle=shuffle, **kwargs)
+        return train #, test

@@ -35,7 +35,7 @@ def eval_Gaussian_LL(x,mu_x,var_x):
     return logp,logp_data
 
 
-class VAE(nn.Module):
+class MVAE(nn.Module):
     def __init__(self,dimz,channels=3,var_x=0.1):
 
         super().__init__()
@@ -55,15 +55,15 @@ class VAE(nn.Module):
         self.decoder_2 = decoder(self.dimz,channels,var_x) #YOUR CODE HERE
 
 
-    def forward(self,x):
+    def forward(self,x_1, x_2):
 
         # In the forward method, we return the mean and variance
         # given by the encoder network and also the reconstruction mean
         # given by the decoder network using a sample from the
         # encoder's posterior distribution.
 
-        mu_1,var_1,_ = self.encoder_1.encode_and_sample(x) #YOUR CODE HERE
-        mu_2,var_2,_ = self.encoder_2.encode_and_sample(x) #YOUR CODE HERE
+        mu_1,var_1,_ = self.encoder_1.encode_and_sample(x_1) #YOUR CODE HERE
+        mu_2,var_2,_ = self.encoder_2.encode_and_sample(x_2) #YOUR CODE HERE
         # Generate the joint latent space -> N(m, C)
         C = 1/(1/var_1 + 1/var_2)
         m = C(var_1*mu_1 + var_2*mu_2)
@@ -78,12 +78,12 @@ class VAE(nn.Module):
 
     # Reconstruction + KL divergence losses summed over all elements and batch
 
-    def loss_function(self, x, mu_x_1, mu_x_2, mu_z, var_z):
+    def loss_function(self, x_1, x_2, mu_x_1, mu_x_2, mu_z, var_z):
 
         # We evaluate the loglikelihood in the batch using the function provided above
 
-        logp_1,_ = eval_Gaussian_LL(x[0],mu_x_1,self.var_x)  #x has two dimensions: the first is for svhn the second one is for mnist
-        logp_2,_ = eval_Gaussian_LL(x[1],mu_x_2,self.var_x)
+        logp_1,_ = eval_Gaussian_LL(x_1, mu_x_1,self.var_x)  #the first is for svhn the second one is for mnist
+        logp_2,_ = eval_Gaussian_LL(x_2, mu_x_2,self.var_x)
 
         # KL divergence between q(z) and N()
         # see Appendix B from VAE paper:
@@ -96,7 +96,7 @@ class VAE(nn.Module):
         return -logp_1 - logp_2 + KLz, -logp_1, -logp_2, KLz
 
 
-class VAE_extended(VAE):
+class MVAE_extended(MVAE):
 
     def __init__(self, dimz=2,  channels=3, var_x=0.1,lr=1e-3,epochs=20,save_folder='./',restore=False):
 
@@ -135,12 +135,14 @@ class VAE_extended(VAE):
 
             for mnist, shvn in trainloader:
                 
-                images = images.to(self.device)
-
+                #images = images.to(self.device)
+                mnist = mnist.to(self.device)
+                svhn = svhn.to(self.device)
                 self.optim.zero_grad()
-                mu_x, mu_z, var_z = self.forward(images)
+                
+                mu_mnist, mu_svhn, mu_z, var_z = self.forward(mnist,svhn)
 
-                loss, rec, kl_l = self.loss_function(images,mu_x, mu_z, var_z)
+                loss, rec, kl_l = self.loss_function(mnist, svhn, mu_mnist, mu_svhn, mu_z, var_z)
 
                 loss.backward()
 
