@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import numpy as np
+from torchnet.dataset.batchdataset import transform
 import torchvision
 from torchvision import datasets
 import torchvision.transforms as transforms
@@ -159,7 +160,7 @@ class decoder(nn.Module):
         return self.forward(z)
 
 
-def getDataLoaders(batch_size, shuffle=True, device='cuda'):
+def getDataLoaders(batch_size, transform, shuffle=True, device='cuda'):
         if not (os.path.exists('./data/train-ms-mnist-idx.pt')
                 and os.path.exists('./data/train-ms-svhn-idx.pt')) :
            #     and os.path.exists('./data/test-ms-mnist-idx.pt')
@@ -172,8 +173,8 @@ def getDataLoaders(batch_size, shuffle=True, device='cuda'):
         #s_svhn = torch.load('./data/test-ms-svhn-idx.pt')
 
         # load base datasets
-        t1 = mnist_train_dataset = datasets.MNIST(root='./data', train=True, transform=transforms.ToTensor(), download=True)
-        t2 = shvn_train_dataset = datasets.SVHN(root='./data', split='train',transform=transforms.ToTensor(), download=True)
+        t1 = mnist_train_dataset = datasets.MNIST(root='./data', train=True, transform=transform[0], download=True)
+        t2 = shvn_train_dataset = datasets.SVHN(root='./data', split='train',transform=transform[1], download=True)
 
         train_mnist_svhn = TensorDataset([
             ResampleDataset(t1, lambda d, i: t_mnist[i], size=len(t_mnist)),

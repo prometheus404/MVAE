@@ -1,4 +1,5 @@
-from utils import encoder, decoder, imshow
+from torchnet.dataset.batchdataset import transform
+from utils import encoder, decoder, imshow, getDataLoaders
 
 import torchvision
 from torchvision import datasets
@@ -36,7 +37,7 @@ def eval_Gaussian_LL(x,mu_x,var_x):
 
 
 class MVAE(nn.Module):
-    def __init__(self,dimz,channels=3,var_x=0.1):
+    def __init__(self,dimz,channels=[3,3],var_x=0.1):
 
         super().__init__()
 
@@ -46,13 +47,13 @@ class MVAE(nn.Module):
 
         # We create two encoder network
 
-        self.encoder_1 = encoder(self.dimz,channels,var_x) #YOUR CODE HERE
-        self.encoder_2 = encoder(self.dimz,channels,var_x) #YOUR CODE HERE
+        self.encoder_1 = encoder(self.dimz,channels[0],var_x) #YOUR CODE HERE
+        self.encoder_2 = encoder(self.dimz,channels[1],var_x) #YOUR CODE HERE
 
         # We create two decoder network
 
-        self.decoder_1 = decoder(self.dimz,channels,var_x) #YOUR CODE HERE
-        self.decoder_2 = decoder(self.dimz,channels,var_x) #YOUR CODE HERE
+        self.decoder_1 = decoder(self.dimz,channels[0],var_x) #YOUR CODE HERE
+        self.decoder_2 = decoder(self.dimz,channels[1],var_x) #YOUR CODE HERE
 
 
     def forward(self,x_1, x_2):
@@ -66,7 +67,7 @@ class MVAE(nn.Module):
         mu_2,var_2,_ = self.encoder_2.encode_and_sample(x_2) #YOUR CODE HERE
         # Generate the joint latent space -> N(m, C)
         C = 1/(1/var_1 + 1/var_2)
-        m = C(var_1*mu_1 + var_2*mu_2)
+        m = C*(var_1*mu_1 + var_2*mu_2)
         # Sample from the latent space
         eps = torch.randn_like(C)
         sample_z = eps * sqrt(C) + m
@@ -98,9 +99,9 @@ class MVAE(nn.Module):
 
 class MVAE_extended(MVAE):
 
-    def __init__(self, dimz=2,  channels=3, var_x=0.1,lr=1e-3,epochs=20,save_folder='./',restore=False):
+    def __init__(self, dimz=2,  channels=[3,3], var_x=0.1,lr=1e-3,epochs=20,save_folder='./',restore=False):
 
-        super().__init__(dimz,channels=3,var_x=0.1)
+        super().__init__(dimz,channels=channels,var_x=0.1)
 
         self.lr = lr
         self.optim = optim.Adam(self.parameters(), self.lr)
@@ -136,7 +137,8 @@ class MVAE_extended(MVAE):
             idx_batch = 0
 
             for mnist, shvn in trainloader:
-                
+                mnist,_ = mnist
+                shvn,_ = shvn
                 #images = images.to(self.device)
                 mnist = mnist.to(self.device)
                 shvn = shvn.to(self.device)
@@ -184,3 +186,19 @@ class MVAE_extended(MVAE):
 
         return mnist_sample.to("cpu").detach(), shvn_sample.to("cpu").detach()
 
+
+######### MAIN ##########
+mnist_trn =  transforms.Compose([
+    transforms.Resize((64,64)),
+    transforms.ToTensor(),
+    transforms.Normalize(0.5,0.5)
+    ])
+shvn_trn = transforms.Compose([
+    transforms.Resize((64,64)),
+    transforms.ToTensor(),
+    transforms.Normalize((0.5, 0.5, 0.5),(0.5, 0.5, 0.5))
+    ])
+
+multi_view_vae = MVAE_extended(32, channels=[1,3])
+trainloader = getDataLoaders(64, transform=[mnist_trn,shvn_trn])#get_mnist_shvn(batch_size=64)
+multi_view_vae.trainloop(trainloader)
